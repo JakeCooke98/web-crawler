@@ -3,31 +3,32 @@ import aiohttp
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import logging
-import json
-from typing import Set, List
+from typing import Dict, Set, List
 
 class AsyncWebCrawler:
     """
     Asynchronous web crawler that crawls pages within a single domain.
     """
-    def __init__(self, start_url: str, max_depth: int = 3, rate_limit: float = 1.0):
+    def __init__(self, start_url: str, max_depth: int = 3, rate_limit: float = 1.0, update_callback=None):
         """
         Initialize the crawler.
 
         :param start_url: Starting URL for crawling.
         :param max_depth: Maximum depth for recursive crawling.
         :param rate_limit: Delay (in seconds) between consecutive requests.
+        :param update_callback: Callback function to send live updates.
         """
         self.start_url = start_url
         self.max_depth = max_depth
         self.rate_limit = rate_limit
         self.base_domain = urlparse(start_url).netloc
         self.visited: Set[str] = set()
-        self.results = {}  # Mapping of URL -> list of found URLs
+        self.results: Dict[str, List[str]] = {}  # Mapping of URL -> list of found URLs
+        self.update_callback = update_callback
 
-        # Configure logging for detailed output and debugging.
+        # Configure logging
         self.logger = logging.getLogger("AsyncWebCrawler")
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
         handler = logging.StreamHandler()
         formatter = logging.Formatter('[%(levelname)s] %(message)s')
         handler.setFormatter(formatter)
@@ -90,6 +91,10 @@ class AsyncWebCrawler:
         links = self.extract_links(html, url)
         self.results[url] = links
 
+        # Send live update if callback is provided
+        if self.update_callback:
+            await self.update_callback(url, links)
+
         # Rate limiting to avoid overwhelming the server.
         await asyncio.sleep(self.rate_limit)
 
@@ -105,31 +110,27 @@ class AsyncWebCrawler:
         """
         Start crawling from the initial URL.
         """
-        async with aiohttp.ClientSession() as session:
+        connector = aiohttp.TCPConnector(limit=10)  # Adjust the limit as needed
+        async with aiohttp.ClientSession(connector=connector) as session:
             await self.crawl_url(session, self.start_url, 0)
 
-    def save_results(self, filename: str):
+    def get_results(self) -> Dict[str, List[str]]:
         """
-        Save crawling results to a JSON file.
+        Get the crawling results.
 
-        :param filename: Path of the JSON file.
+        :return: Dictionary containing URLs and their extracted links.
         """
-        with open(filename, "w") as f:
-            json.dump(self.results, f, indent=4)
+        return self.results
 
-# Below is an example of how to run the crawler.
-if __name__ == "__main__":
-    import sys
-    import argparse
 
-    parser = argparse.ArgumentParser(description="Async Web Crawler")
-    parser.add_argument("start_url", help="Starting URL for crawling")
-    parser.add_argument("--depth", type=int, default=3, help="Maximum depth for crawling")
-    parser.add_argument("--rate", type=float, default=1.0, help="Delay between requests (seconds)")
-    parser.add_argument("--output", type=str, default="results.json", help="File to save crawl results")
-    args = parser.parse_args()
+async def crawl_website(url: str, max_depth: int = 3) -> Dict[str, List[str]]:
+    """
+    FastAPI-compatible function to crawl a website asynchronously.
 
-    crawler = AsyncWebCrawler(args.start_url, max_depth=args.depth, rate_limit=args.rate)
-    asyncio.run(crawler.crawl())
-    crawler.save_results(args.output)
-    print(f"Crawling completed. Results saved to {args.output}")
+    :param url: The starting URL to crawl.
+    :param max_depth: The depth limit for crawling.
+    :return: Dictionary containing crawled URLs and their extracted links.
+    """
+    crawler = AsyncWebCrawler(url, max_depth)
+    await crawler.crawl()
+    return crawler.get_results()
