@@ -56,9 +56,13 @@ export default {
 		resolve({
 			browser: true,
 			dedupe: ['svelte'],
-			exportConditions: ['svelte']
+			exportConditions: ['svelte'],
+			moduleDirectories: ['node_modules']
 		}),
-		commonjs(),
+		commonjs({
+			ignore: ['conditional-runtime-dependency'],
+			transformMixedEsModules: true
+		}),
 
 		// In dev mode, call `npm run start` once
 		// the bundle has been generated
@@ -74,5 +78,11 @@ export default {
 	],
 	watch: {
 		clearScreen: false
+	},
+	onwarn(warning, warn) {
+		if (warning.code === 'CIRCULAR_DEPENDENCY' && warning.message.includes('d3-')) {
+			return;
+		}
+		warn(warning);
 	}
 };

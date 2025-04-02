@@ -2,6 +2,7 @@
     import CrawlerForm from "./components/CrawlerForm.svelte";
     import CrawlerResults from "./components/CrawlerResults.svelte";
     import SiteMap from "./components/SiteMap.svelte";
+    import { onDestroy } from 'svelte';
 
     let results = {};
     let isConnected = false;
@@ -10,6 +11,7 @@
 
     function handleCrawlStarted(event) {
         const url = event.detail.url;
+        results = {}; // Clear previous results
         isCrawling = true;
         startWebSocket(url);
     }
@@ -17,12 +19,17 @@
     function resetCrawler() {
         isCrawling = false;
         isConnected = false;
-        if (socket) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
             socket.close();
         }
+        socket = null;
     }
 
     function startWebSocket(url) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.close();
+        }
+
         socket = new WebSocket('ws://localhost:8000/ws');
         
         socket.onopen = () => {
@@ -40,7 +47,10 @@
             }
 
             if (data.status === 'completed') {
-                resetCrawler();
+                isCrawling = false;
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.close();
+                }
                 return;
             }
 
@@ -52,10 +62,12 @@
         };
 
         socket.onclose = () => {
-            resetCrawler();
+            if (isCrawling) {
+                resetCrawler();
+            }
         };
 
-        socket.onerror = () => {
+        socket.onerror = (error) => {
             resetCrawler();
         };
     }
@@ -64,6 +76,12 @@
         results = {};
         resetCrawler();
     }
+
+    onDestroy(() => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.close();
+        }
+    });
 </script>
 
 <main>
@@ -89,9 +107,9 @@
 
 <style>
     main {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
-        padding: 2rem;
+        padding: 1rem;
     }
 
     h1 {
@@ -100,11 +118,9 @@
     }
 
     .status {
+        text-align: center;
         margin: 1rem 0;
-        padding: 0.75rem 1rem;
-        background-color: #dbeafe;
-        border-radius: 0.5rem;
-        color: #1e40af;
+        color: #666;
     }
 
     .results-grid {
@@ -112,11 +128,13 @@
         grid-template-columns: 1fr;
         gap: 2rem;
         margin-top: 2rem;
+        min-height: 600px;
     }
 
     @media (min-width: 1024px) {
         .results-grid {
             grid-template-columns: 3fr 2fr;
+            align-items: start;
         }
     }
 </style>
