@@ -14,6 +14,7 @@
 ### Trade-offs
 - **Complexity vs. Performance**: While D3.js provides powerful visualization capabilities, it introduces complexity in managing state and performance, especially with large datasets. Progressive rendering and throttling were used to mitigate these issues.
 - **Node Limitation**: To maintain performance, the number of visible nodes is limited, which may not fully represent very large datasets but ensures the application remains responsive.
+- Revert back to list of URLS when dataset gets too large and we get rid of the visual representation
 
 ## Backend
 
