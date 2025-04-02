@@ -1,6 +1,7 @@
 <script>
     import CrawlerForm from "./components/CrawlerForm.svelte";
     import CrawlerResults from "./components/CrawlerResults.svelte";
+    import SiteMap from "./components/SiteMap.svelte";
 
     let results = {};
     let isConnected = false;
@@ -80,7 +81,10 @@
         </div>
     {/if}
 
-    <CrawlerResults {results} />
+    <div class="results-grid">
+        <SiteMap {results} />
+        <CrawlerResults {results} />
+    </div>
 </main>
 
 <style>
@@ -101,5 +105,18 @@
         background-color: #dbeafe;
         border-radius: 0.5rem;
         color: #1e40af;
+    }
+
+    .results-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        margin-top: 2rem;
+    }
+
+    @media (min-width: 1024px) {
+        .results-grid {
+            grid-template-columns: 3fr 2fr;
+        }
     }
 </style>
